@@ -25,6 +25,7 @@ import org.kairosdb.client.builder.TimeUnit;
 import org.kairosdb.client.response.*;
 import org.kairosdb.client.response.grouping.TagGroupResults;
 import org.kairosdb.client.response.grouping.TimeGroupResults;
+import org.kairosdb.client.response.grouping.TypeGroupResults;
 import org.kairosdb.client.response.grouping.ValueGroupResults;
 
 import java.io.IOException;
@@ -120,5 +121,50 @@ public class ClientTest
 		assertThat(timeGroupResults.getRangeSize().getValue(), equalTo(1));
 		assertThat(timeGroupResults.getRangeSize().getUnit(), equalTo(TimeUnit.HOURS.toString()));
 		assertThat(timeGroupResults.getGroup().getGroupNumber(), equalTo(3));
+	}
+
+	@Test
+	public void test_validResponseFromNewKairos() throws IOException, URISyntaxException
+	{
+		QueryBuilder builder = QueryBuilder.getInstance();
+		builder.setStart(2, TimeUnit.MILLISECONDS);
+
+		String json = Resources.toString(Resources.getResource("response_valid_new_kairos.json"), Charsets.UTF_8);
+
+		FakeClient client = new FakeClient(200, json);
+
+		QueryResponse response = client.query(builder);
+
+		List<Queries> queries = response.getQueries();
+		List<Results> results = queries.get(0).getResults();
+
+		assertThat(results.size(), equalTo(1));
+
+		// Name
+		assertThat(results.get(0).getName(), equalTo("archive_search"));
+
+		// Tags
+		assertThat(results.get(0).getTags().size(), equalTo(2));
+		assertThat(results.get(0).getTags().get("partner_guid"), hasItems("messagelabs"));
+		assertThat(results.get(0).getTags().get("bucket"), hasItems("0-5s", "10-20s", "5-10s", "20s-"));
+
+		// Data points
+		assertThat(results.get(0).getDataPoints().size(), equalTo(3));
+		LongDataPoint dataPoint = (LongDataPoint) results.get(0).getDataPoints().get(0);
+		assertThat(dataPoint.getTimestamp(), equalTo(1362034800000L));
+		assertThat(dataPoint.getValue(), equalTo(1L));
+		dataPoint = (LongDataPoint) results.get(0).getDataPoints().get(1);
+		assertThat(dataPoint.getTimestamp(), equalTo(1362121200000L));
+		assertThat(dataPoint.getValue(), equalTo(2L));
+		dataPoint = (LongDataPoint) results.get(0).getDataPoints().get(2);
+		assertThat(dataPoint.getTimestamp(), equalTo(1362207600000L));
+		assertThat(dataPoint.getValue(), equalTo(3L));
+
+		// Groups
+		assertThat(results.get(0).getGroupResults().size(), equalTo(1));
+
+		// Type Group
+		TypeGroupResults typeGroupResults = (TypeGroupResults) results.get(0).getGroupResults().get(0);
+		assertThat(typeGroupResults.getType(), equalTo("number"));
 	}
 }
